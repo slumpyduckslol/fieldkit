@@ -1,0 +1,10 @@
+# build/report artifacts, not source
+*.zip
+*.png
+shots/
+.venv/
+__pycache__/
+node_modules/
+
+# unrelated to this project
+fix-keyboard.sh

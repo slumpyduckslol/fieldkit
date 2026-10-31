@@ -1,0 +1,47 @@
+Paste into your AI builder (phone-friendly, keep it under one screen):
+
+---
+
+Build a mobile GUI for a pentest field-kit app. Attached: 7 screenshots, one per
+panel, plus index.html as the working reference.
+
+REDESIGN ONLY. Do not rewrite the JavaScript. The file has two script blocks:
+the first is marked SEALED CORE and must be copied through byte-for-byte. The
+second block (WIRING) must also stay intact. Rewrite only the <style> block and
+the markup's visual structure.
+
+You MUST keep these attributes exactly as named, because the wiring finds
+elements by them, not by class names:
+
+  data-tool="codec|hashid|jwt|nmap|rev|ports|crib"  on each <section>
+  data-tab="<same>"                                  on each nav button
+  data-in="<name>"                                   on every input/select/textarea
+  data-act="<name>"                                  on every action button
+  data-out="result"  or "listener"                   on every <pre> that shows output
+  data-copy="<same key>"                             on copy buttons
+  data-note                                          on the small status <p>
+
+Panel name pairs you must not rename:
+  codec  in:input  out:result   acts: b64enc b64dec urlenc urldec hexenc hexdec htmlenc html_dec rot13
+  hashid in:hash   out:result   act: id
+  jwt    in:token  out:result   act: decode
+  nmap   in:target scantype timing ports svc scripts pn aggr out  out:result  act: build
+         (svc/scripts/pn/aggr MUST stay <input type="checkbox">)
+  rev    in:ip port shell       out:listener AND result   act: gen
+  ports  in:q      out:result   act: look
+  crib   in:q      out:result   act: look
+
+Design: dark, dense, instrument-panel feel. Used one-handed on a phone in a dark
+room. 44px minimum touch targets. Monospace for anything that is a command or a
+hash. Keep the CSS variables --bg --panel --line --txt --dim --accent --warn --err
+so the theme stays swappable. Style three note states: .note, .note.err, .note.warn.
+
+Constraints: ONE html file, no CDN, no external fonts, no frameworks, no build
+step. It must run offline from a local file. Never let the literal text
+</script> appear inside a script block.
+
+Screen order for the tabs: Codec, Hash ID, JWT, Nmap, Revshell, Ports, Payloads.
+
+---
+
+When it comes back: hand me the file, I run verify.py on it before you load it.
