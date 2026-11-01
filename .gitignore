@@ -8,3 +8,8 @@ node_modules/
 
 # unrelated to this project
 fix-keyboard.sh
+
+# generated test/probe pages
+_test.html
+_test_core.html
+probe.html

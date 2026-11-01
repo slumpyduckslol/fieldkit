@@ -18,11 +18,14 @@
   h1{margin:0;font-size:19px;letter-spacing:.14em;font-weight:700}
   h1 span{color:var(--accent)}
   .sub{margin:4px 0 0;color:var(--dim);font-size:11.5px;letter-spacing:.06em;font-family:var(--mono)}
-  nav{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 12px;scrollbar-width:none}
-  nav::-webkit-scrollbar{display:none}
-  nav button{flex:0 0 auto;background:var(--panel);color:var(--dim);border:1px solid var(--line);
-       padding:8px 13px;border-radius:999px;font-size:12.5px;font-weight:600;font-family:inherit}
+  /* 16 tabs must fit a phone. 6 across = 3 rows of 6 at 390px, every label whole. */
+  nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;padding:8px 12px 12px}
+  nav button{display:flex;align-items:center;justify-content:center;min-height:44px;
+       background:var(--panel);color:var(--dim);border:1px solid var(--line);
+       border-radius:9px;padding:0 2px;font:600 10.5px/1 var(--mono);
+       letter-spacing:-.02em;white-space:nowrap;overflow:hidden}
   nav button.on{color:#04120f;background:var(--accent);border-color:var(--accent)}
+  @media (max-width:383px){ nav{grid-template-columns:repeat(4,minmax(0,1fr))} }
   main{padding:0 12px}
   section[data-tool]{display:none;background:var(--panel);border:1px solid var(--line);
        border-radius:14px;padding:14px}
@@ -69,9 +72,18 @@
   <button data-tab="hashid">Hash ID</button>
   <button data-tab="jwt">JWT</button>
   <button data-tab="nmap">Nmap</button>
-  <button data-tab="rev">Revshell</button>
+  <button data-tab="rev">Shell</button>
   <button data-tab="ports">Ports</button>
-  <button data-tab="crib">Payloads</button>
+  <button data-tab="crib">Payload</button>
+  <button data-tab="cidr">CIDR</button>
+  <button data-tab="ipv6">IPv6</button>
+  <button data-tab="ssrf">SSRF</button>
+  <button data-tab="redirect">Redir</button>
+  <button data-tab="traversal">Paths</button>
+  <button data-tab="quotes">Quotes</button>
+  <button data-tab="wordmix">Wordmix</button>
+  <button data-tab="cheat">Cheats</button>
+  <button data-tab="dorks">Dorks</button>
 </nav>
 
 <main>
@@ -209,10 +221,144 @@
     <pre data-out="result"></pre>
     <p class="note" data-note></p>
   </section>
+
+  <!-- ============ CIDR ============ -->
+  <section data-tool="cidr">
+    <label for="ci-in">Subnet</label>
+    <input id="ci-in" data-in="cidr" placeholder="10.0.0.0/22">
+    <label for="ci-split">Split into (optional)</label>
+    <input id="ci-split" data-in="split" placeholder="24 = list the /24s inside it">
+    <div class="row primary"><button data-act="calc">Calculate</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ IPV6 ============ -->
+  <section data-tool="ipv6">
+    <label for="i6-in">Address</label>
+    <input id="i6-in" data-in="addr" placeholder="::1  or  2001:db8::1">
+    <div class="row primary">
+      <button data-act="calc">Expand</button>
+      <button data-act="variants">Bypass variants</button>
+    </div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ SSRF ============ -->
+  <section data-tool="ssrf">
+    <div class="grid2">
+      <div>
+        <label for="s-host">Host</label>
+        <input id="s-host" data-in="host" placeholder="127.0.0.1">
+      </div>
+      <div>
+        <label for="s-port">Port</label>
+        <input id="s-port" data-in="port" value="80">
+      </div>
+    </div>
+    <label for="s-scheme">Scheme</label>
+    <select id="s-scheme" data-in="scheme">
+      <option value="http" selected>http</option>
+      <option value="https">https</option>
+      <option value="gopher">gopher</option>
+      <option value="file">file</option>
+    </select>
+    <div class="row primary"><button data-act="gen">Generate matrix</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ REDIRECT ============ -->
+  <section data-tool="redirect">
+    <label for="rd-in">Your host</label>
+    <input id="rd-in" data-in="evil" placeholder="evil.example">
+    <div class="row primary"><button data-act="gen">Variants</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ TRAVERSAL ============ -->
+  <section data-tool="traversal">
+    <label for="tr-path">File path</label>
+    <input id="tr-path" data-in="path" placeholder="/etc/passwd">
+    <label for="tr-pre">Parameter prefix (optional)</label>
+    <input id="tr-pre" data-in="prefix" placeholder="?file=">
+    <div class="row primary"><button data-act="gen">Spray</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ QUOTES ============ -->
+  <section data-tool="quotes">
+    <label for="q-in">String</label>
+    <input id="q-in" data-in="str" placeholder="admin'--">
+    <div class="row primary"><button data-act="gen">Break it</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ WORDMIX ============ -->
+  <section data-tool="wordmix">
+    <div class="grid2">
+      <div>
+        <label for="w-name">Name</label>
+        <input id="w-name" data-in="name" placeholder="acme">
+      </div>
+      <div>
+        <label for="w-year">Year</label>
+        <input id="w-year" data-in="year" placeholder="2026">
+      </div>
+    </div>
+    <label for="w-extras">Seasons / extra words (optional)</label>
+    <input id="w-extras" data-in="extras" placeholder="summer,winter,admin">
+    <div class="row primary"><button data-act="gen">Mix</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <label>Count</label>
+    <pre data-out="count"></pre>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ CHEAT ============ -->
+  <section data-tool="cheat">
+    <label for="ch-q">Filter</label>
+    <input id="ch-q" data-in="q" placeholder="sqli, redis, kerberoast, white…">
+    <div class="row primary"><button data-act="look">Search</button></div>
+    <pre data-out="result"></pre>
+    <p class="note" data-note></p>
+  </section>
+
+  <!-- ============ DORKS ============ -->
+  <section data-tool="dorks">
+    <label for="dk-q">Filter</label>
+    <input id="dk-q" data-in="q" placeholder="aws, password, camera…">
+    <label for="dk-cat">Category</label>
+    <select id="dk-cat" data-in="cat">
+      <option value="" selected>all categories</option>
+      <option value="creds">creds</option>
+      <option value="files">files</option>
+      <option value="dirs">dirs</option>
+      <option value="cams">cams</option>
+      <option value="cloud">cloud</option>
+      <option value="errors">errors</option>
+      <option value="info">info</option>
+    </select>
+    <div class="row primary"><button data-act="look">Search</button></div>
+    <pre data-out="result"></pre>
+    <button class="copy" data-copy="result">copy</button>
+    <p class="note" data-note></p>
+  </section>
 </main>
 
 <footer>
-  fieldkit · sealed core v1 · runs from a file:// URL, no network, no install
+  fieldkit · sealed core v2 · 16 panels · runs from a file:// URL, no network, no install
 </footer>
 
 <script>

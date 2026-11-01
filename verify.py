@@ -21,6 +21,15 @@ CONTRACT = {
     "rev":    (["ip", "port", "shell"], ["gen"], ["listener", "result"]),
     "ports":  (["q"], ["look"], ["result"]),
     "crib":   (["q"], ["look"], ["result"]),
+    "cidr":   (["cidr", "split"], ["calc"], ["result"]),
+    "ipv6":   (["addr"], ["calc", "variants"], ["result"]),
+    "ssrf":   (["host", "port", "scheme"], ["gen"], ["result"]),
+    "redirect": (["evil"], ["gen"], ["result"]),
+    "traversal": (["path", "prefix"], ["gen"], ["result"]),
+    "quotes": (["str"], ["gen"], ["result"]),
+    "wordmix": (["name", "year", "extras"], ["gen"], ["result", "count"]),
+    "cheat":  (["q"], ["look"], ["result"]),
+    "dorks":  (["q", "cat"], ["look"], ["result"]),
 }
 
 def attrs(fragment, name):
